@@ -1,0 +1,3 @@
+# Waterpistol - A single binary run environment for gatling tests
+
+More text will follow...

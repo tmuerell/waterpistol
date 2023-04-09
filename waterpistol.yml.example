@@ -1,0 +1,11 @@
+simulation:
+  simulation_class: SunriseSimulation
+  params:
+    - name: FACTOR
+      value: "1"
+    - name: DURATION
+      value: "60"
+    - name: SCENARIO
+      value: default
+    - name: BASE_URL
+      value: https://example.com/
