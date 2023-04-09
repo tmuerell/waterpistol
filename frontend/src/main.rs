@@ -17,6 +17,7 @@ fn switch(routes: Route) -> Html {
     match routes {
         Route::Home => html! {
             <main class="container">
+                <img src="/water-droplet.svg" width="40" style="float: left; padding-right: 1em; padding-left: 1em;" />
                 <h1>{ "Waterpistol" }</h1>
                 <TestrunStarter />
                 <TestrunList />
@@ -90,7 +91,15 @@ fn testrun_starter() -> Html {
 
                 <button type="submit">{ "Click" }</button>
             </form>
-            <p>{ format!("{:?}", message) }</p>
+            {
+                if message.is_some() {
+                    html! { 
+                        <p style="color: green;">{ message.as_ref().unwrap() }</p>
+                    }
+                } else {
+                    html!()
+                }
+            }
         </article>
     }
 }
