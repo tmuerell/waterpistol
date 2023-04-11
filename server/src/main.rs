@@ -2,16 +2,18 @@ use axum::body::{boxed, Full};
 use axum::extract::State;
 use axum::http::{header, StatusCode, Uri};
 use axum::Json;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
+use figment::providers::{Format, Serialized, Yaml};
 use figment::Figment;
-use figment::providers::{Yaml, Format, Serialized};
+use log::warn;
+use models::config::AppConfig;
 use tokio::io::AsyncReadExt;
 
 use axum::response::Response;
 use axum::routing::post;
 use axum::{response::IntoResponse, routing::get, Router};
 use clap::Parser;
-use models::report::{TestrunData, TestrunStatus, GatlingReport};
+use models::report::{GatlingReport, TestrunData, TestrunStatus};
 use models::{RunTestParam, Testrun};
 
 use rust_embed::RustEmbed;
@@ -23,16 +25,13 @@ use std::sync::Arc;
 use tokio::fs::{self, read_dir, remove_dir_all, rename, File};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
-use tower::{ServiceBuilder};
+use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 use uuid::Uuid;
 
 use color_eyre::Result;
 
-use crate::config::AppConfig;
-
-mod config;
 
 // Setup the command line interface with clap.
 #[derive(Parser, Debug)]
@@ -117,13 +116,9 @@ async fn simulations_handler(uri: Uri, State(state): State<Arc<AppState>>) -> im
             .unwrap();
     }
 
-    let p = if p.is_dir() {
-        p.join("index.html")
-    } else {
-        p
-    };
+    let p = if p.is_dir() { p.join("index.html") } else { p };
 
-    let mut buf : Vec<u8> = vec![];
+    let mut buf: Vec<u8> = vec![];
     let mut f = File::open(&p).await.unwrap();
     f.read_to_end(&mut buf).await.unwrap();
     let mime = mime_guess::from_path(&p).first_or_octet_stream();
@@ -145,17 +140,18 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let config: AppConfig = Figment::from(Serialized::defaults(AppConfig::default()))
-    .merge(Yaml::file("waterpistol.yml"))
-    .extract()?;
+        .merge(Yaml::file("waterpistol.yml"))
+        .extract()?;
 
     let shared_state = Arc::new(AppState {
         gatling_dir: opt.gatling_dir.clone(),
-        app_config: config
+        app_config: config,
     });
 
     let app = Router::new()
         .route("/api/testruns", get(get_testruns))
         .route("/api/run", post(run_test))
+        .route("/api/config", get(get_config))
         .route("/simulations/*path", get(simulations_handler))
         .fallback_service(get(static_handler))
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
@@ -176,6 +172,16 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+async fn read_data_file(data_file: &PathBuf) -> Result<TestrunData> {
+    let contents = fs::read(&data_file).await?;
+    let contents = String::from_utf8_lossy(&contents);
+    Ok(serde_json::from_str(&contents)?)
+}
+
+async fn get_config(State(state): State<Arc<AppState>>) -> Json<AppConfig> {
+    Json(state.app_config.clone())
+}
+
 async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> {
     let mut res: Vec<Testrun> = vec![];
     let mut x = read_dir(&state.gatling_dir).await.unwrap();
@@ -183,16 +189,37 @@ async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> 
         match x.next_entry().await {
             Ok(Some(e)) => {
                 let data_file = e.path().join("testrun-data.json");
-                let data: TestrunData = if data_file.exists() {
-                    let contents = fs::read(&data_file).await.unwrap();
-                    let contents = String::from_utf8_lossy(&contents);
-                    serde_json::from_str(&contents).unwrap()
-                } else {
-                    TestrunData::default()
+                let data: TestrunData = match read_data_file(&data_file).await {
+                    Ok(df) => df,
+                    Err(err) => {
+                        warn!(
+                            "Cannot read data file {:?} because of {:?}",
+                            &data_file, err
+                        );
+                        let simulation_log_file = e.path().join("simulation.log");
+                        let data = if simulation_log_file.exists() {
+                            let f = std::fs::File::open(&simulation_log_file).unwrap();
+                            let report = GatlingReport::from_file(&mut BufReader::new(&f)).unwrap();
+
+                            TestrunData {
+                                statistics: Some(report),
+                                ..Default::default()
+                            }
+                        } else {
+                            Default::default()
+                        };
+                        {
+                            let mut f = File::create(&data_file).await.unwrap();
+                            f.write_all(serde_json::to_string(&data).unwrap().as_bytes())
+                                .await
+                                .unwrap();
+                        }
+                        data
+                    }
                 };
                 let datetime: String = match e.metadata().await.and_then(|x| x.created()) {
                     Ok(t) => DateTime::<Local>::from(t).to_rfc3339(),
-                    Err(_) => "1970-01-01T12:00:00".to_string()
+                    Err(_) => "1970-01-01T12:00:00".to_string(),
                 };
                 res.push(Testrun {
                     creation_date: datetime,
@@ -231,26 +258,28 @@ async fn run_test(
         let mut cmd = Command::new("mvn");
 
         cmd.arg("gatling:test")
-            .arg(format!("-Dgatling.simulationClass={}", app_config.simulation.simulation_class))
+            .arg(format!(
+                "-Dgatling.simulationClass={}",
+                app_config.simulation.simulation_class
+            ))
             .arg("-Dgatling.runDescription=foobar")
             .arg(format!(
                 "-Dgatling.resultsFolder={}",
                 &temp_test_dir.as_os_str().to_string_lossy()
             ));
-        
+
         for param in &app_config.simulation.params {
             let value = match param.name.as_str() {
                 "BASE_URL" => test_param.url.clone(),
                 "FACTOR" => format!("{}", test_param.factor),
                 "DURATION" => format!("{}", test_param.duration),
                 "SCENARIO" => test_param.scenario.clone(),
-                _ => param.value.clone()
+                _ => param.value.clone(),
             };
             cmd.arg(format!("-D{}={}", param.name, value));
         }
 
-
-            cmd.current_dir(&parent_dir);
+        cmd.current_dir(&parent_dir);
 
         let output = cmd.status().await.unwrap();
 
@@ -265,16 +294,18 @@ async fn run_test(
                         rename(e.path(), &target_test_dir).await.unwrap();
 
                         let report = {
-                            let f = std::fs::File::open(target_test_dir.join("simulation.log")).unwrap();
+                            let f = std::fs::File::open(target_test_dir.join("simulation.log"))
+                                .unwrap();
                             GatlingReport::from_file(&mut BufReader::new(&f)).unwrap()
                         };
-                        
+
                         let data = TestrunData {
+                            datum: PathBuf::from(target_test_dir.join("simulation.log")).metadata().and_then(|m| m.created()).map(|t| DateTime::<Utc>::from(t)).ok(),
                             status: TestrunStatus::Done,
                             factor: test_param.factor,
                             duration: test_param.duration,
                             scenario: test_param.scenario.clone(),
-                            statistics: Some(report)
+                            statistics: Some(report),
                         };
 
                         {

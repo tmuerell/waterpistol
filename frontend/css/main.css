@@ -1,0 +1,14 @@
+article {
+    margin: 1rem;
+    background-color: #eeeeee;
+    padding: 1em;
+    border-radius: 10px;
+}
+
+.pure-table {
+    background-color: white;
+}
+
+.pure-table tr:nth-child(even) td {
+    background-color: #f0f0f0;
+}

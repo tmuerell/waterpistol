@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 
 pub mod report;
+pub mod config;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Testrun {
