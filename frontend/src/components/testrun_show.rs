@@ -17,13 +17,13 @@ pub fn testrun() -> Html {
 
                     <div class="pure-g">
 
-                    <div class="pure-u-1-2">
+                    <div class="pure-u-4-5">
                         <table class="pure-table">
                             <thead>
                             <tr>
                                 <th>{"Request"}</th>
                                 <th>{"Count"}</th>
-                                <th>{"OK"}</th>
+                                <th>{"Errors"}</th>
                                 <th>{"Min"}</th>
                                 <th>{"Max"}</th>
                                 <th>{"Avg"}</th>
@@ -33,15 +33,16 @@ pub fn testrun() -> Html {
                             <tbody> {
                                 s.request_stats.iter().map(|x| {
                                     let errors : u64 = x.errors.iter().map(|x| x.count).sum();
+                                    
                                     html!{
                                         <tr>
                                         <td>{ format!("{}", x.name) }</td>
                                         <td>{ format!("{}", x.count) }</td>
-                                        <td>{ format!("{}", x.count - errors) }</td>
-                                        <td>{ format!("{}", x.min) }</td>
-                                        <td>{ format!("{}", x.max) }</td>
-                                        <td>{ format!("{}", x.avg) }</td>
-                                        <td>{ format!("{}", x.p95) }</td>
+                                        <HighlightedCell value={errors} warning_limit=0 error_limit=10 />
+                                        <HighlightedCell value={x.min} />
+                                        <HighlightedCell value={x.max} />
+                                        <HighlightedCell value={x.avg} />
+                                        <HighlightedCell value={x.p95} />
                                         </tr>
                                     }
 
@@ -50,7 +51,7 @@ pub fn testrun() -> Html {
                             </tbody>
                         </table>
                     </div>
-                    <div class="pure-u-1-2">
+                    <div class="pure-u-1-5">
                     <table class="pure-table">
                             <thead>
                             <tr>
@@ -71,11 +72,34 @@ pub fn testrun() -> Html {
                             }
                             </tbody>
                         </table>
-                    <p>{ format!("Min: {:?}", tr)}</p>
                     </div>
                 </div>
                 </article>
         }},
         None => html!()
+    }
+}
+
+
+#[derive(Properties, PartialEq)]
+pub struct HighlightedCellProps {
+    pub value : u64,
+    #[prop_or(800)]
+    pub warning_limit : u64,
+    #[prop_or(1200)]
+    pub error_limit : u64,
+}
+
+#[function_component(HighlightedCell)]
+pub fn hcell(props : &HighlightedCellProps) -> Html {
+    let error_class = if props.value > props.error_limit {
+        "functional-error"
+    } else if props.value > props.warning_limit {
+        "functional-warning"
+    } else {
+        "functional-ok"
+    };
+    html!{
+        <td class={classes!(error_class)}>{ format!("{}", props.value )}</td>
     }
 }

@@ -12,3 +12,11 @@ article {
 .pure-table tr:nth-child(even) td {
     background-color: #f0f0f0;
 }
+
+.pure-table td.functional-error {
+    background-color: #ffaaa599 !important;
+}
+
+.pure-table td.functional-warning {
+    background-color: #ffd3b699 !important;
+}

@@ -2,7 +2,7 @@ use gloo_net::http::Request;
 use models::Testrun;
 
 use yew::{platform::spawn_local, prelude::*};
-use yewdux::{prelude::use_store};
+use yewdux::prelude::use_store;
 
 use crate::store::{CompareSelection, TestrunDataSelection};
 
@@ -59,7 +59,8 @@ pub fn testrun_list() -> Html {
             html! {
                 <article>
                     <h3>{"Testruns"}</h3>
-                    <table class="pure-table" style="max-height: 400px;">
+                    <div style="max-height: 400px; overflow: auto;">
+                    <table class="pure-table">
                     <thead>
                     <tr>
                     <th></th>
@@ -105,9 +106,7 @@ pub fn testrun_list() -> Html {
                                         <input type="checkbox" {onchange}/>
                                     </td>
                                     <td>{ testrun.data.as_ref().and_then(|x| x.datum).map(|x| x.format("%Y-%m-%d %H:%M")) }</td>
-                                    <td>
-                                       <a href={format!("/simulations/{}/", testrun.name)}>{ format!("{}",testrun.name) }</a>
-                                    </td>
+                                    <td>{ testrun.data.as_ref().and_then(|x| x.statistics.as_ref()).map(|x| x.name.clone()).unwrap_or("---".into()) }</td>
                                     <td>{ format!("{:?}", testrun.data.as_ref().unwrap().status) }</td>
                                     <td>{ format!("{}", testrun.data.as_ref().unwrap().scenario) }</td>
                                     <td>{ format!("{}", testrun.data.as_ref().unwrap().duration) }</td>
@@ -115,7 +114,8 @@ pub fn testrun_list() -> Html {
                                     <td>{ format!("{}", total)}</td>
                                     <td>{ format!("{:.4}%", nok_ratio*100.0)}</td>
                                     <td>
-                                    <button {onclick} class="pure-button">{ "show" }</button>
+                                        <button {onclick} class="pure-button">{ "show" }</button>
+                                        <a href={format!("/simulations/{}/", testrun.name)} class="pure-button" target="_blank">{ "report" }</a>
                                     </td>
                                 </tr>
                                 }
@@ -124,6 +124,7 @@ pub fn testrun_list() -> Html {
                     }
                     </tbody>
                     </table>
+                    </div>
                     <button {onclick} class="pure-button pure-button-primary">{ "Compare" }</button>
                 </article>
             }

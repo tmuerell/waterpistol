@@ -36,12 +36,14 @@ pub fn testrun_starter() -> Html {
         });
     }
 
+    let description = use_node_ref();
     let duration = use_node_ref();
     let factor = use_node_ref();
     let scenario = use_node_ref();
     let url = use_node_ref();
 
     let onsubmit = {
+        let description = description.clone();
         let duration = duration.clone();
         let factor = factor.clone();
         let scenario = scenario.clone();
@@ -51,6 +53,12 @@ pub fn testrun_starter() -> Html {
         Callback::from(move |ev: SubmitEvent| {
             ev.prevent_default();
 
+            let description = description
+                .cast::<HtmlInputElement>()
+                .unwrap()
+                .value()
+                .parse()
+                .unwrap();
             let duration = duration
                 .cast::<HtmlInputElement>()
                 .unwrap()
@@ -69,6 +77,7 @@ pub fn testrun_starter() -> Html {
 
             wasm_bindgen_futures::spawn_local(async move {
                 let body = RunTestParam {
+                    description: description,
                     duration: duration,
                     factor: factor,
                     scenario: scenario,
@@ -88,13 +97,30 @@ pub fn testrun_starter() -> Html {
     html! {
         <article>
             <h3>{"Start run"}</h3>
-            <form {onsubmit} class="pure-form">
-                <input ref={duration} placeholder="Duration" value={ data.as_ref().and_then(|d| d.get_param("DURATION")).unwrap_or("60".into()) }/>
-                <input ref={factor} placeholder="Factor"  value={ data.as_ref().and_then(|d| d.get_param("FACTOR")).unwrap_or("1".into()) }/>
-                <input ref={scenario} placeholder="Scenario"  value={ data.as_ref().and_then(|d| d.get_param("SCENARIO")).unwrap_or("default".into()) }/>
-                <input ref={url} placeholder="Url"  value={ data.as_ref().and_then(|d| d.get_param("URL")).unwrap_or("https://example.com".into()) }/>
-
-                <button type="submit" class="pure-button pure-button-primary">{ "Start gatling run" }</button>
+            <form {onsubmit} class="pure-form pure-form-aligned">
+                <div class="pure-control-group">
+                    <label for="description">{"Description"}</label>
+                    <input ref={description} id="description" class="pure-input-1-2" />
+                </div>
+                <div class="pure-control-group">
+                    <label for="url">{"URL"}</label>
+                    <input ref={url} id="url"  value={ data.as_ref().and_then(|d| d.get_param("BASE_URL")).unwrap_or("https://example.com".into()) } class="pure-input-1-2"/>
+                </div>
+                <div class="pure-control-group">
+                    <label for="duration">{"Duration"}</label>
+                    <input ref={duration} id="duration" value={ data.as_ref().and_then(|d| d.get_param("DURATION")).unwrap_or("60".into()) }/>
+                </div>
+                <div class="pure-control-group">
+                    <label for="factor">{"Factor"}</label>
+                    <input ref={factor} id="factor" value={ data.as_ref().and_then(|d| d.get_param("FACTOR")).unwrap_or("1".into()) }/>
+                </div>
+                <div class="pure-control-group">
+                    <label for="scenario">{"Scenario"}</label>
+                    <input ref={scenario} id="scenario"  value={ data.as_ref().and_then(|d| d.get_param("SCENARIO")).unwrap_or("default".into()) }/>
+                </div>
+                <div class="pure-controls">
+                    <button type="submit" class="pure-button pure-button-primary">{ "Start gatling run" }</button>
+                </div>
             </form>
             {
                 if message.is_some() {

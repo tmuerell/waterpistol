@@ -262,7 +262,7 @@ async fn run_test(
                 "-Dgatling.simulationClass={}",
                 app_config.simulation.simulation_class
             ))
-            .arg("-Dgatling.runDescription=foobar")
+            .arg(format!("-Dgatling.runDescription={}", &test_param.description))
             .arg(format!(
                 "-Dgatling.resultsFolder={}",
                 &temp_test_dir.as_os_str().to_string_lossy()
