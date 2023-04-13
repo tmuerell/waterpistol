@@ -184,7 +184,7 @@ REQUEST\t\thome_page\t1680605883400\t1680605883512\tOK";
             requests_ok: 2,
             requests_nok: 0,
             request_stats: vec![
-                RequestStats { name: "home_page".into(), avg: 101, max: 112, min: 90, p95: 112, count: 3, errors: vec![] }
+                RequestStats { name: "home_page".into(), avg: 101, max: 112, min: 90, p95: 112, count: 2, errors: vec![] }
             ],
             user_stats: vec![
                 UserStats { name: "Visit Homepage".into(), count: 3 },
@@ -214,7 +214,7 @@ REQUEST\t\thome_page\t1680605883400\t1680605883512\tOK";
             requests_ok: 1,
             requests_nok: 1,
             request_stats: vec![
-                RequestStats { name: "home_page".into(), avg: 101, max: 112, min: 90, p95: 112, count: 3, errors: vec![
+                RequestStats { name: "home_page".into(), avg: 101, max: 112, min: 90, p95: 112, count: 2, errors: vec![
                     RequestErrorStats {
                         name: "BLAH".into(),
                         count: 1
