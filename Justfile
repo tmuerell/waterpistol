@@ -1,7 +1,7 @@
 set dotenv-load
 
 sync:
-  rsync --exclude=target/ -avz . ${RSYNC_TARGET}
+  rsync --exclude=target/ --exclude=waterpistol.yml -avz . ${RSYNC_TARGET}
 
 dependencies:
   rustup target add wasm32-unknown-unknown
