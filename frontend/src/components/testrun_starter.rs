@@ -1,6 +1,6 @@
 use gloo_net::http::Request;
 use log::info;
-use models::{RunTestParam, config::AppConfig};
+use models::{config::AppConfig, RunTestParam};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;

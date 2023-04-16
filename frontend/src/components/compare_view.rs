@@ -1,4 +1,4 @@
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 use gloo_utils::document;
 use log::info;

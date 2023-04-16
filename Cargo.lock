@@ -729,6 +729,7 @@ dependencies = [
  "log",
  "models",
  "plotly",
+ "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-logger",
  "web-sys",
