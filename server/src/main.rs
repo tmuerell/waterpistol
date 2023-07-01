@@ -32,7 +32,6 @@ use uuid::Uuid;
 
 use color_eyre::Result;
 
-
 // Setup the command line interface with clap.
 #[derive(Parser, Debug)]
 #[clap(name = "waterpistol", about = "A UI for running gatling tests!")]
@@ -50,12 +49,13 @@ struct Opt {
     port: u16,
 
     /// set the gatling dir to use
-    #[clap(long = "gatling-dir")]
-    gatling_dir: String,
+    #[clap(long = "testsuite-dir")]
+    testsuite_dir: String,
 }
 
 struct AppState {
-    pub gatling_dir: String,
+    pub testsuite_dir: PathBuf,
+    pub result_dir: PathBuf,
     pub app_config: AppConfig,
 }
 
@@ -107,7 +107,7 @@ async fn simulations_handler(uri: Uri, State(state): State<Arc<AppState>>) -> im
         path = path.replace("simulations/", "");
     }
 
-    let p = PathBuf::from(&state.clone().gatling_dir).join(&path);
+    let p = state.result_dir.join(&path);
 
     if !p.exists() {
         return Response::builder()
@@ -118,14 +118,21 @@ async fn simulations_handler(uri: Uri, State(state): State<Arc<AppState>>) -> im
 
     let p = if p.is_dir() { p.join("index.html") } else { p };
 
-    let mut buf: Vec<u8> = vec![];
-    let mut f = File::open(&p).await.unwrap();
-    f.read_to_end(&mut buf).await.unwrap();
-    let mime = mime_guess::from_path(&p).first_or_octet_stream();
-    Response::builder()
-        .header(header::CONTENT_TYPE, mime.as_ref())
-        .body(boxed(Full::from(buf)))
-        .unwrap()
+    if p.exists() {
+        let mut buf: Vec<u8> = vec![];
+        let mut f = File::open(&p).await.unwrap();
+        f.read_to_end(&mut buf).await.unwrap();
+        let mime = mime_guess::from_path(&p).first_or_octet_stream();
+        Response::builder()
+            .header(header::CONTENT_TYPE, mime.as_ref())
+            .body(boxed(Full::from(buf)))
+            .unwrap()
+    } else {
+        Response::builder()
+            .status(404)
+            .body(boxed(Full::from("Not found")))
+            .unwrap()
+    }
 }
 
 #[tokio::main]
@@ -144,7 +151,8 @@ async fn main() -> Result<()> {
         .extract()?;
 
     let shared_state = Arc::new(AppState {
-        gatling_dir: opt.gatling_dir.clone(),
+        testsuite_dir: PathBuf::from(&opt.testsuite_dir),
+        result_dir: PathBuf::from(&opt.testsuite_dir).join("target/gatling"),
         app_config: config,
     });
 
@@ -184,48 +192,50 @@ async fn get_config(State(state): State<Arc<AppState>>) -> Json<AppConfig> {
 
 async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> {
     let mut res: Vec<Testrun> = vec![];
-    let mut x = read_dir(&state.gatling_dir).await.unwrap();
+    let mut x = read_dir(&state.result_dir).await.unwrap();
     loop {
         match x.next_entry().await {
             Ok(Some(e)) => {
-                let data_file = e.path().join("testrun-data.json");
-                let data: TestrunData = match read_data_file(&data_file).await {
-                    Ok(df) => df,
-                    Err(err) => {
-                        warn!(
-                            "Cannot read data file {:?} because of {:?}",
-                            &data_file, err
-                        );
-                        let simulation_log_file = e.path().join("simulation.log");
-                        let data = if simulation_log_file.exists() {
-                            let f = std::fs::File::open(&simulation_log_file).unwrap();
-                            let report = GatlingReport::from_file(&mut BufReader::new(&f)).unwrap();
+                if e.path().is_dir() {
+                    let data_file = e.path().join("testrun-data.json");
+                    let data: TestrunData = match read_data_file(&data_file).await {
+                        Ok(df) => df,
+                        Err(err) => {
+                            warn!(
+                                "Cannot read data file {:?} because of {:?}",
+                                &data_file, err
+                            );
+                            let simulation_log_file = e.path().join("simulation.log");
+                            let data = if simulation_log_file.exists() {
+                                let f = std::fs::File::open(&simulation_log_file).unwrap();
+                                let report = GatlingReport::from_file(&mut BufReader::new(&f)).ok();
 
-                            TestrunData {
-                                statistics: Some(report),
-                                ..Default::default()
+                                TestrunData {
+                                    statistics: report,
+                                    ..Default::default()
+                                }
+                            } else {
+                                Default::default()
+                            };
+                            {
+                                let mut f = File::create(&data_file).await.unwrap();
+                                f.write_all(serde_json::to_string(&data).unwrap().as_bytes())
+                                    .await
+                                    .unwrap();
                             }
-                        } else {
-                            Default::default()
-                        };
-                        {
-                            let mut f = File::create(&data_file).await.unwrap();
-                            f.write_all(serde_json::to_string(&data).unwrap().as_bytes())
-                                .await
-                                .unwrap();
+                            data
                         }
-                        data
-                    }
-                };
-                let datetime: String = match e.metadata().await.and_then(|x| x.created()) {
-                    Ok(t) => DateTime::<Local>::from(t).to_rfc3339(),
-                    Err(_) => "1970-01-01T12:00:00".to_string(),
-                };
-                res.push(Testrun {
-                    creation_date: datetime,
-                    name: e.file_name().to_owned().to_string_lossy().to_string(),
-                    data: Some(data),
-                })
+                    };
+                    let datetime: String = match e.metadata().await.and_then(|x| x.created()) {
+                        Ok(t) => DateTime::<Local>::from(t).to_rfc3339(),
+                        Err(_) => "1970-01-01T12:00:00".to_string(),
+                    };
+                    res.push(Testrun {
+                        creation_date: datetime,
+                        name: e.file_name().to_owned().to_string_lossy().to_string(),
+                        data: Some(data),
+                    })
+                }
             }
             Ok(None) => break,
             Err(_) => break,
@@ -241,19 +251,15 @@ async fn run_test(
     test_param: Json<RunTestParam>,
 ) -> impl IntoResponse {
     tokio::spawn(async move {
-        let gatling_dir = state.gatling_dir.clone();
         let app_config = &state.app_config;
-        let gatling_dir = PathBuf::from(&gatling_dir);
 
         info!("Starting simulation");
 
         let uuid = Uuid::new_v4();
         let uuid = format!("{}", uuid);
 
-        let target_test_dir = gatling_dir.join(&uuid);
-
-        let parent_dir = gatling_dir.parent().unwrap().parent().unwrap();
-        let temp_test_dir = parent_dir.join(&uuid);
+        let target_test_dir = state.result_dir.join(&uuid);
+        let temp_test_dir = state.testsuite_dir.join(&uuid);
 
         let mut cmd = Command::new("mvn");
 
@@ -262,7 +268,10 @@ async fn run_test(
                 "-Dgatling.simulationClass={}",
                 app_config.simulation.simulation_class
             ))
-            .arg(format!("-Dgatling.runDescription={}", &test_param.description))
+            .arg(format!(
+                "-Dgatling.runDescription={}",
+                &test_param.description
+            ))
             .arg(format!(
                 "-Dgatling.resultsFolder={}",
                 &temp_test_dir.as_os_str().to_string_lossy()
@@ -279,7 +288,7 @@ async fn run_test(
             cmd.arg(format!("-D{}={}", param.name, value));
         }
 
-        cmd.current_dir(&parent_dir);
+        cmd.current_dir(&state.testsuite_dir);
 
         let output = cmd.status().await.unwrap();
 
@@ -300,7 +309,11 @@ async fn run_test(
                         };
 
                         let data = TestrunData {
-                            datum: PathBuf::from(target_test_dir.join("simulation.log")).metadata().and_then(|m| m.created()).map(|t| DateTime::<Utc>::from(t)).ok(),
+                            datum: PathBuf::from(target_test_dir.join("simulation.log"))
+                                .metadata()
+                                .and_then(|m| m.created())
+                                .map(|t| DateTime::<Utc>::from(t))
+                                .ok(),
                             status: TestrunStatus::Done,
                             factor: test_param.factor,
                             duration: test_param.duration,

@@ -59,91 +59,91 @@ pub fn testrun_list() -> Html {
         }
         Some(Ok(data)) => {
             html! {
-                    <article>
-                        <h3>{"Testruns"}</h3>
-                        <div style="max-height: 400px; overflow: auto;">
-                        <table class="pure-table">
-                        <thead>
-                        <tr>
-                        <th></th>
-                        <th>{ "Date" }</th>
-                        <th>{ "Name" }</th>
-                        <th>{ "Status" }</th>
-                        <th>{ "Scenario" }</th>
-                        <th>{ "Duration" }</th>
-                        <th>{ "Factor" }</th>
-                        <th>{ "Requests" }</th>
-                        <th>{ "(Failure%)" }</th>
-                        <th></th>
-                        </tr>
-                        </thead>
-                        <tbody>
+                <article>
+                    <h3>{"Testruns"}</h3>
+                    <div style="max-height: 400px; overflow: auto;">
+                    <table class="pure-table">
+                    <thead>
+                    <tr>
+                    <th></th>
+                    <th>{ "Date" }</th>
+                    <th>{ "Name" }</th>
+                    <th>{ "Status" }</th>
+                    <th>{ "Scenario" }</th>
+                    <th>{ "Duration" }</th>
+                    <th>{ "Factor" }</th>
+                    <th>{ "Requests" }</th>
+                    <th>{ "(Failure%)" }</th>
+                    <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {
                         {
-                            {
-                                data.iter().map(|testrun| {
-                                    let x = testrun.data.clone();
-                                    let d = dispatch.clone();
-                                    let onclick = Callback::from(move |_ev:MouseEvent| {
-                                        d.set(TestrunDataSelection { testrun_data: x.clone() });
-                                    });
+                            data.iter().map(|testrun| {
+                                let x = testrun.data.clone();
+                                let d = dispatch.clone();
+                                let onclick = Callback::from(move |_ev:MouseEvent| {
+                                    d.set(TestrunDataSelection { testrun_data: x.clone() });
+                                });
 
-                                    let selected_testruns = selected_testruns.clone();
-                                    let x = testrun.data.clone();
-                                    let onchange = Callback::from(move |ev:Event| {
-                                        let input = ev
-                                        .target()
-                                        .unwrap()
-                                        .dyn_into::<web_sys::HtmlInputElement>()
-                                        .unwrap();
+                                let selected_testruns = selected_testruns.clone();
+                                let x = testrun.data.clone();
+                                let onchange = Callback::from(move |ev:Event| {
+                                    let input = ev
+                                    .target()
+                                    .unwrap()
+                                    .dyn_into::<web_sys::HtmlInputElement>()
+                                    .unwrap();
 
-                                        if input.checked() {
-                                            let mut temp: Vec<_> = selected_testruns.to_vec();
-                                            temp.push(x.clone().unwrap());
-                                            selected_testruns.set(temp);
-                                        } else {
-                                            if let Some(ref x) = x {
-                                                let mut temp: Vec<_> = selected_testruns.to_vec();
-                                                temp.retain(|a| a.datum != x.datum);
-                                                selected_testruns.set(temp);
-                                            }
-                                        }
-                                    });
-
-
-                                    let (total, nok_ratio) = if let Some(ref st) = testrun.data.as_ref().unwrap().statistics {
-                                        (st.requests_nok + st.requests_ok, st.requests_nok as f32 / (st.requests_nok as f32 +st.requests_ok as f32))
+                                    if input.checked() {
+                                        let mut temp: Vec<_> = selected_testruns.to_vec();
+                                        temp.push(x.clone().unwrap());
+                                        selected_testruns.set(temp);
                                     } else {
-                                        (0, 0.0f32)
-                                    };
-                                    html!{
-
-                                    <tr key={testrun.name.clone()}>
-                                        <td>
-                                            <input type="checkbox" {onchange}/>
-                                        </td>
-                                        <td>{ testrun.data.as_ref().and_then(|x| x.datum).map(|x| x.format("%Y-%m-%d %H:%M")) }</td>
-                                        <td>{ testrun.data.as_ref().and_then(|x| x.statistics.as_ref()).map(|x| x.name.clone()).unwrap_or("---".into()) }</td>
-                                        <td>{ format!("{:?}", testrun.data.as_ref().unwrap().status) }</td>
-                                        <td>{ format!("{}", testrun.data.as_ref().unwrap().scenario) }</td>
-                                        <td>{ format!("{}", testrun.data.as_ref().unwrap().duration) }</td>
-                                        <td>{ format!("{}", testrun.data.as_ref().unwrap().factor) }</td>
-                                        <td>{ format!("{}", total)}</td>
-                                        <td>{ format!("{:.4}%", nok_ratio*100.0)}</td>
-                                        <td>
-                                            <button {onclick} class="pure-button">{ "show" }</button>
-                                            <a href={format!("/simulations/{}/", testrun.name)} class="pure-button" target="_blank">{ "report" }</a>
-                                        </td>
-                                    </tr>
+                                        if let Some(ref x) = x {
+                                            let mut temp: Vec<_> = selected_testruns.to_vec();
+                                            temp.retain(|a| a.datum != x.datum);
+                                            selected_testruns.set(temp);
+                                        }
                                     }
-                                }).collect::<Html>()
-                            }
+                                });
+
+
+                                let (total, nok_ratio) = if let Some(ref st) = testrun.data.as_ref().unwrap().statistics {
+                                    (st.requests_nok + st.requests_ok, st.requests_nok as f32 / (st.requests_nok as f32 +st.requests_ok as f32))
+                                } else {
+                                    (0, 0.0f32)
+                                };
+                                html!{
+
+                                <tr key={testrun.name.clone()}>
+                                    <td>
+                                        <input type="checkbox" {onchange}/>
+                                    </td>
+                                    <td>{ testrun.data.as_ref().and_then(|x| x.datum).map(|x| x.format("%Y-%m-%d %H:%M")) }</td>
+                                    <td>{ testrun.data.as_ref().and_then(|x| x.statistics.as_ref()).map(|x| x.name.clone()).unwrap_or("---".into()) }</td>
+                                    <td>{ format!("{:?}", testrun.data.as_ref().unwrap().status) }</td>
+                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().scenario) }</td>
+                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().duration) }</td>
+                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().factor) }</td>
+                                    <td>{ format!("{}", total)}</td>
+                                    <td>{ format!("{:.4}%", nok_ratio*100.0)}</td>
+                                    <td>
+                                        <button {onclick} class="pure-button">{ "show" }</button>
+                                        <a href={format!("/simulations/{}/", testrun.name)} class="pure-button" target="_blank">{ "report" }</a>
+                                    </td>
+                                </tr>
+                                }
+                            }).collect::<Html>()
                         }
-                        </tbody>
-                        </table>
-                        </div>
-                        <button {onclick} class="pure-button pure-button-primary">{ "Compare" }</button>
-                    </article>
-                }
+                    }
+                    </tbody>
+                    </table>
+                    </div>
+                    <button {onclick} class="pure-button pure-button-primary">{ "Compare" }</button>
+                </article>
+            }
         }
         Some(Err(err)) => {
             html! {

@@ -1,18 +1,16 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-pub mod report;
 pub mod config;
+pub mod report;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Testrun {
-    pub creation_date : String,
-    pub name : String,
-    pub data : Option<report::TestrunData>
+    pub creation_date: String,
+    pub name: String,
+    pub data: Option<report::TestrunData>,
 }
 
-impl Eq for Testrun {
-
-}
+impl Eq for Testrun {}
 
 impl Ord for Testrun {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -20,7 +18,7 @@ impl Ord for Testrun {
     }
 }
 
-impl PartialEq for Testrun{
+impl PartialEq for Testrun {
     fn eq(&self, other: &Self) -> bool {
         self.creation_date == other.creation_date
     }
@@ -32,12 +30,11 @@ impl PartialOrd for Testrun {
     }
 }
 
-
 #[derive(Deserialize, Serialize)]
 pub struct RunTestParam {
     pub description: String,
     pub factor: u64,
     pub duration: u64,
     pub scenario: String,
-    pub url : String,
+    pub url: String,
 }
