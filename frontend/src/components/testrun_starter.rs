@@ -1,3 +1,5 @@
+use std::{collections::HashMap, hash::Hash, sync::Arc};
+
 use gloo_net::http::Request;
 use log::info;
 use models::{config::AppConfig, RunTestParam};
@@ -36,18 +38,24 @@ pub fn testrun_starter() -> Html {
         });
     }
 
+    let mut ref_map : HashMap<&str, NodeRef> = HashMap::new();
+    /*
+    if let Some(config) = data.as_ref() {
+        for p in &config.simulation.params {
+            ref_map.insert("URL", use_node_ref());
+        }
+    } */
+    ref_map.insert("URL", use_node_ref());
+    ref_map.insert("DURATION", use_node_ref());
+    ref_map.insert("FACTOR", use_node_ref());
+    ref_map.insert("SCENARIO", use_node_ref());
+
+    let ref_map = Arc::new(ref_map);
     let description = use_node_ref();
-    let duration = use_node_ref();
-    let factor = use_node_ref();
-    let scenario = use_node_ref();
-    let url = use_node_ref();
 
     let onsubmit = {
+        let ref_map = ref_map.clone();
         let description = description.clone();
-        let duration = duration.clone();
-        let factor = factor.clone();
-        let scenario = scenario.clone();
-        let url = url.clone();
         let message = message.clone();
 
         Callback::from(move |ev: SubmitEvent| {
@@ -59,29 +67,22 @@ pub fn testrun_starter() -> Html {
                 .value()
                 .parse()
                 .unwrap();
-            let duration = duration
-                .cast::<HtmlInputElement>()
-                .unwrap()
-                .value()
-                .parse()
-                .unwrap();
-            let factor = factor
-                .cast::<HtmlInputElement>()
-                .unwrap()
-                .value()
-                .parse()
-                .unwrap();
-            let scenario = scenario.cast::<HtmlInputElement>().unwrap().value();
-            let url = url.cast::<HtmlInputElement>().unwrap().value();
             let message = message.clone();
+
+            let mut custom_params : HashMap<String, String> = HashMap::new();
+            for x in ref_map.as_ref() {
+                let y : String = x.1.cast::<HtmlInputElement>()
+                .unwrap()
+                .value()
+                .parse()
+                .unwrap();
+                custom_params.insert(String::from(*x.0), y);
+            }
 
             wasm_bindgen_futures::spawn_local(async move {
                 let body = RunTestParam {
                     description: description,
-                    duration: duration,
-                    factor: factor,
-                    scenario: scenario,
-                    url: url,
+                    custom_params,
                 };
                 let _ = Request::post("/api/run")
                     .json(&body)
@@ -102,22 +103,16 @@ pub fn testrun_starter() -> Html {
                     <label for="description">{"Description"}</label>
                     <input ref={description} id="description" class="pure-input-1-2" />
                 </div>
-                <div class="pure-control-group">
-                    <label for="url">{"URL"}</label>
-                    <input ref={url} id="url"  value={ data.as_ref().and_then(|d| d.get_param("BASE_URL")).unwrap_or("https://example.com".into()) } class="pure-input-1-2"/>
-                </div>
-                <div class="pure-control-group">
-                    <label for="duration">{"Duration"}</label>
-                    <input ref={duration} id="duration" value={ data.as_ref().and_then(|d| d.get_param("DURATION")).unwrap_or("60".into()) }/>
-                </div>
-                <div class="pure-control-group">
-                    <label for="factor">{"Factor"}</label>
-                    <input ref={factor} id="factor" value={ data.as_ref().and_then(|d| d.get_param("FACTOR")).unwrap_or("1".into()) }/>
-                </div>
-                <div class="pure-control-group">
-                    <label for="scenario">{"Scenario"}</label>
-                    <input ref={scenario} id="scenario"  value={ data.as_ref().and_then(|d| d.get_param("SCENARIO")).unwrap_or("default".into()) }/>
-                </div>
+                {
+                    ref_map.iter().map(|e|
+                        html!(
+                        <div class="pure-control-group">
+                        <label for="scenario">{e.0}</label>
+                        <input ref={e.1} id={*e.0}  value={ data.as_ref().and_then(|d| d.get_param(e.0)).unwrap_or("default".into()) }/>
+                        </div>
+                        )
+                    ).collect::<Html>()
+                }
                 <div class="pure-controls">
                     <button type="submit" class="pure-button pure-button-primary">{ "Start gatling run" }</button>
                 </div>

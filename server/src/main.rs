@@ -278,14 +278,9 @@ async fn run_test(
             ));
 
         for param in &app_config.simulation.params {
-            let value = match param.name.as_str() {
-                "BASE_URL" => test_param.url.clone(),
-                "FACTOR" => format!("{}", test_param.factor),
-                "DURATION" => format!("{}", test_param.duration),
-                "SCENARIO" => test_param.scenario.clone(),
-                _ => param.value.clone(),
-            };
-            cmd.arg(format!("-D{}={}", param.name, value));
+            if let Some(v) = test_param.custom_params.get(&param.name) {
+                cmd.arg(format!("-D{}={}", param.name, v));
+            }
         }
 
         cmd.current_dir(&state.testsuite_dir);
@@ -315,9 +310,7 @@ async fn run_test(
                                 .map(|t| DateTime::<Utc>::from(t))
                                 .ok(),
                             status: TestrunStatus::Done,
-                            factor: test_param.factor,
-                            duration: test_param.duration,
-                            scenario: test_param.scenario.clone(),
+                            custom_params: test_param.custom_params.clone(),
                             statistics: Some(report),
                         };
 

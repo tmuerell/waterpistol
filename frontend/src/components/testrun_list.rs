@@ -124,9 +124,9 @@ pub fn testrun_list() -> Html {
                                     <td>{ testrun.data.as_ref().and_then(|x| x.datum).map(|x| x.format("%Y-%m-%d %H:%M")) }</td>
                                     <td>{ testrun.data.as_ref().and_then(|x| x.statistics.as_ref()).map(|x| x.name.clone()).unwrap_or("---".into()) }</td>
                                     <td>{ format!("{:?}", testrun.data.as_ref().unwrap().status) }</td>
-                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().scenario) }</td>
-                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().duration) }</td>
-                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().factor) }</td>
+                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().custom_params.get("SCENARIO").unwrap_or(&"---".to_owned())) }</td>
+                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().custom_params.get("DURATION").unwrap_or(&"---".to_owned())) }</td>
+                                    <td>{ format!("{}", testrun.data.as_ref().unwrap().custom_params.get("FACTOR").unwrap_or(&"---".to_owned())) }</td>
                                     <td>{ format!("{}", total)}</td>
                                     <td>{ format!("{:.4}%", nok_ratio*100.0)}</td>
                                     <td>

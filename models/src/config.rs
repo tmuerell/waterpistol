@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Default, Clone)]
+#[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
 pub struct AppConfig {
     pub simulation: SimulationConfig,
 }
@@ -15,13 +15,13 @@ impl AppConfig {
     }
 }
 
-#[derive(Deserialize, Serialize, Default, Clone)]
+#[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
 pub struct SimulationConfig {
     pub simulation_class: String,
     pub params: Vec<Param>,
 }
 
-#[derive(Deserialize, Serialize, Default, Clone)]
+#[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
 pub struct Param {
     pub name: String,
     pub value: String,

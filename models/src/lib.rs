@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 pub mod config;
@@ -33,8 +35,5 @@ impl PartialOrd for Testrun {
 #[derive(Deserialize, Serialize)]
 pub struct RunTestParam {
     pub description: String,
-    pub factor: u64,
-    pub duration: u64,
-    pub scenario: String,
-    pub url: String,
+    pub custom_params : HashMap<String, String>,
 }
