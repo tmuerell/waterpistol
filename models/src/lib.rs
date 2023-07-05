@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub mod config;
 pub mod report;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Testrun {
     pub creation_date: String,
     pub name: String,
@@ -35,5 +35,5 @@ impl PartialOrd for Testrun {
 #[derive(Deserialize, Serialize)]
 pub struct RunTestParam {
     pub description: String,
-    pub custom_params : HashMap<String, String>,
+    pub custom_params: HashMap<String, String>,
 }

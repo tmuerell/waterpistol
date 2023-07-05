@@ -1,4 +1,8 @@
-use std::{collections::HashMap, hash::Hash, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    hash::Hash,
+    sync::Arc,
+};
 
 use gloo_net::http::Request;
 use log::info;
@@ -38,7 +42,7 @@ pub fn testrun_starter() -> Html {
         });
     }
 
-    let mut ref_map : HashMap<&str, NodeRef> = HashMap::new();
+    let mut ref_map: BTreeMap<&str, NodeRef> = BTreeMap::new();
     /*
     if let Some(config) = data.as_ref() {
         for p in &config.simulation.params {
@@ -69,13 +73,14 @@ pub fn testrun_starter() -> Html {
                 .unwrap();
             let message = message.clone();
 
-            let mut custom_params : HashMap<String, String> = HashMap::new();
+            let mut custom_params: HashMap<String, String> = HashMap::new();
             for x in ref_map.as_ref() {
-                let y : String = x.1.cast::<HtmlInputElement>()
-                .unwrap()
-                .value()
-                .parse()
-                .unwrap();
+                let y: String =
+                    x.1.cast::<HtmlInputElement>()
+                        .unwrap()
+                        .value()
+                        .parse()
+                        .unwrap();
                 custom_params.insert(String::from(*x.0), y);
             }
 

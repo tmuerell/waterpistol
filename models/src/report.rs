@@ -19,7 +19,7 @@ pub enum TestrunStatus {
 pub struct TestrunData {
     pub datum: Option<DateTime<Utc>>,
     pub status: TestrunStatus,
-    pub custom_params : HashMap<String, String>,
+    pub custom_params: HashMap<String, String>,
     pub statistics: Option<GatlingReport>,
 }
 
