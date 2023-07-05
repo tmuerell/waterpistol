@@ -49,7 +49,7 @@ pub fn testrun_starter() -> Html {
             ref_map.insert("URL", use_node_ref());
         }
     } */
-    ref_map.insert("URL", use_node_ref());
+    ref_map.insert("ENVIRONMENT", use_node_ref());
     ref_map.insert("DURATION", use_node_ref());
     ref_map.insert("FACTOR", use_node_ref());
     ref_map.insert("SCENARIO", use_node_ref());

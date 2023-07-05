@@ -22,7 +22,7 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::fs::{self, read_dir, remove_dir_all, rename, File};
+use tokio::fs::{self, create_dir_all, read_dir, read_to_string, remove_dir_all, rename, File};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tower::ServiceBuilder;
@@ -192,6 +192,7 @@ async fn get_config(State(state): State<Arc<AppState>>) -> Json<AppConfig> {
 
 async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> {
     let mut res: Vec<Testrun> = vec![];
+
     let mut x = read_dir(&state.result_dir).await.unwrap();
     loop {
         match x.next_entry().await {
@@ -233,6 +234,7 @@ async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> 
                     res.push(Testrun {
                         creation_date: datetime,
                         name: e.file_name().to_owned().to_string_lossy().to_string(),
+                        progress: None,
                         data: Some(data),
                     })
                 }
@@ -241,7 +243,57 @@ async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> 
             Err(_) => break,
         }
     }
+
     res.sort();
+
+    let mut x = read_dir(&state.testsuite_dir).await.unwrap();
+    loop {
+        match x.next_entry().await {
+            Ok(Some(e)) => {
+                if e.path().is_dir()
+                    && e.path()
+                        .file_name()
+                        .map(|e| e.to_string_lossy().starts_with("running-"))
+                        .unwrap_or(false)
+                {
+                    let mut sum = None;
+                    info!("{:?}", e.path());
+                    let data_file = e.path().join("testrun-data.json");
+                    {
+                        let mut x = read_dir(&e.path()).await.unwrap();
+                        loop {
+                            match x.next_entry().await {
+                                Ok(Some(e)) => {
+                                    if e.path().is_dir() {
+                                        let f = e.path().join("simulation.log");
+                                        if f.exists() {
+                                            sum = read_to_string(f).await.ok().map(|c| {
+                                                c.lines().filter(|l| l.contains("USER")).count()
+                                                    as u64
+                                            });
+                                        }
+                                    }
+                                }
+                                Ok(None) => break,
+                                Err(_) => break,
+                            }
+                        }
+                    }
+                    if let Ok(d) = read_data_file(&data_file).await {
+                        res.push(Testrun {
+                            creation_date: "".into(),
+                            name: e.file_name().to_owned().to_string_lossy().to_string(),
+                            progress: sum,
+                            data: Some(d),
+                        })
+                    }
+                }
+            }
+            Ok(None) => break,
+            Err(_) => break,
+        }
+    }
+
     res.reverse();
     Json(res)
 }
@@ -259,7 +311,25 @@ async fn run_test(
         let uuid = format!("{}", uuid);
 
         let target_test_dir = state.result_dir.join(&uuid);
-        let temp_test_dir = state.testsuite_dir.join(&uuid);
+        let temp_test_dir = state.testsuite_dir.join(&format!("running-{}", uuid));
+
+        create_dir_all(&temp_test_dir).await.unwrap();
+
+        {
+            let data = TestrunData {
+                datum: None,
+                status: TestrunStatus::Running,
+                custom_params: test_param.custom_params.clone(),
+                statistics: None,
+            };
+
+            let mut f = File::create(temp_test_dir.join("testrun-data.json"))
+                .await
+                .unwrap();
+            f.write_all(serde_json::to_string(&data).unwrap().as_bytes())
+                .await
+                .unwrap();
+        }
 
         let mut cmd = Command::new("mvn");
 

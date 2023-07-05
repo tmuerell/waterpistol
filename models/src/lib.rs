@@ -9,6 +9,7 @@ pub mod report;
 pub struct Testrun {
     pub creation_date: String,
     pub name: String,
+    pub progress: Option<u64>,
     pub data: Option<report::TestrunData>,
 }
 
