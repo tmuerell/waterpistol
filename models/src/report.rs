@@ -62,11 +62,11 @@ impl GatlingReport {
 
         let mut iter = rdr.lines();
 
-        let header = iter.next().unwrap()?;
+        let header = iter.next().ok_or("No header")??;
         let mut header = header.split('\t');
 
-        let name = header.nth(4).unwrap();
-        let version = header.nth(0).unwrap();
+        let name = header.nth(4).ok_or("No name")?;
+        let version = header.nth(0).ok_or("No version")?;
         let mut requests_ok = 0;
         let mut requests_nok = 0;
 

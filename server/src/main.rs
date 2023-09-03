@@ -268,7 +268,7 @@ async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> 
                                         let f = e.path().join("simulation.log");
                                         if f.exists() {
                                             sum = read_to_string(f).await.ok().map(|c| {
-                                                c.lines().filter(|l| l.contains("USER")).count()
+                                                c.lines().filter(|l| l.contains("USER") && l.contains("START")).count()
                                                     as u64
                                             });
                                         }
