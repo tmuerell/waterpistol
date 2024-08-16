@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use report::TestrunVisibilityStatus;
 use serde::{Deserialize, Serialize};
 
 pub mod config;
@@ -37,4 +38,9 @@ impl PartialOrd for Testrun {
 pub struct RunTestParam {
     pub description: String,
     pub custom_params: HashMap<String, String>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct UpdateTestrunData {
+    pub visibility_status: Option<TestrunVisibilityStatus>,
 }

@@ -16,9 +16,21 @@ pub enum TestrunStatus {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Default, Clone, Eq)]
+pub enum TestrunVisibilityStatus {
+    #[default]
+    Regular,
+    Hidden,
+    Highlighted,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Default, Clone, Eq)]
 pub struct TestrunData {
     pub datum: Option<DateTime<Utc>>,
     pub status: TestrunStatus,
+    #[serde(default)]
+    pub notes: String,
+    #[serde(default)]
+    pub visibility_status: TestrunVisibilityStatus,
     pub custom_params: HashMap<String, String>,
     pub statistics: Option<GatlingReport>,
 }

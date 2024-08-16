@@ -1,5 +1,4 @@
-use axum::body::{boxed, Full};
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{header, StatusCode, Uri};
 use axum::Json;
 use chrono::{DateTime, Local, Utc};
@@ -10,11 +9,11 @@ use models::config::AppConfig;
 use tokio::io::AsyncReadExt;
 
 use axum::response::Response;
-use axum::routing::post;
+use axum::routing::{patch, post};
 use axum::{response::IntoResponse, routing::get, Router};
 use clap::Parser;
-use models::report::{GatlingReport, TestrunData, TestrunStatus};
-use models::{RunTestParam, Testrun};
+use models::report::{GatlingReport, TestrunData, TestrunStatus, TestrunVisibilityStatus};
+use models::{RunTestParam, Testrun, UpdateTestrunData};
 
 use rust_embed::RustEmbed;
 use std::io::BufReader;
@@ -26,6 +25,7 @@ use tokio::fs::{self, create_dir_all, read_dir, read_to_string, remove_dir_all, 
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tower::ServiceBuilder;
+use tower_http::body::Full;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 use uuid::Uuid;
@@ -74,17 +74,16 @@ where
 
         match DistAsset::get(path.as_str()) {
             Some(content) => {
-                let body = boxed(Full::from(content.data));
                 let mime = mime_guess::from_path(path).first_or_octet_stream();
-                Response::builder()
-                    .header(header::CONTENT_TYPE, mime.as_ref())
-                    .body(body)
-                    .unwrap()
+
+                (
+                    StatusCode::OK,
+                    [(header::CONTENT_TYPE, mime.as_ref())],
+                    content.data,
+                )
+                    .into_response()
             }
-            None => Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(boxed(Full::from("404")))
-                .unwrap(),
+            None => (StatusCode::NOT_FOUND, "404").into_response(),
         }
     }
 }
@@ -110,10 +109,7 @@ async fn simulations_handler(uri: Uri, State(state): State<Arc<AppState>>) -> im
     let p = state.result_dir.join(&path);
 
     if !p.exists() {
-        return Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(boxed(Full::from("404")))
-            .unwrap();
+        return (StatusCode::NOT_FOUND, "Not found").into_response();
     }
 
     let p = if p.is_dir() { p.join("index.html") } else { p };
@@ -123,15 +119,9 @@ async fn simulations_handler(uri: Uri, State(state): State<Arc<AppState>>) -> im
         let mut f = File::open(&p).await.unwrap();
         f.read_to_end(&mut buf).await.unwrap();
         let mime = mime_guess::from_path(&p).first_or_octet_stream();
-        Response::builder()
-            .header(header::CONTENT_TYPE, mime.as_ref())
-            .body(boxed(Full::from(buf)))
-            .unwrap()
+        (StatusCode::OK, [(header::CONTENT_TYPE, mime.as_ref())], buf).into_response()
     } else {
-        Response::builder()
-            .status(404)
-            .body(boxed(Full::from("Not found")))
-            .unwrap()
+        return (StatusCode::NOT_FOUND, "Not found").into_response();
     }
 }
 
@@ -158,6 +148,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/api/testruns", get(get_testruns))
+        .route("/api/testruns/:name", patch(update_visibility_status))
         .route("/api/run", post(run_test))
         .route("/api/config", get(get_config))
         .route("/simulations/*path", get(simulations_handler))
@@ -172,7 +163,7 @@ async fn main() -> Result<()> {
 
     log::info!("listening on http://{}", sock_addr);
 
-    axum::Server::bind(&sock_addr)
+    axum_server::bind(sock_addr)
         .serve(app.into_make_service())
         .await
         .expect("Unable to start server");
@@ -231,12 +222,14 @@ async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> 
                         Ok(t) => DateTime::<Local>::from(t).to_rfc3339(),
                         Err(_) => "1970-01-01T12:00:00".to_string(),
                     };
-                    res.push(Testrun {
-                        creation_date: datetime,
-                        name: e.file_name().to_owned().to_string_lossy().to_string(),
-                        progress: None,
-                        data: Some(data),
-                    })
+                    if data.visibility_status != TestrunVisibilityStatus::Hidden {
+                        res.push(Testrun {
+                            creation_date: datetime,
+                            name: e.file_name().to_owned().to_string_lossy().to_string(),
+                            progress: None,
+                            data: Some(data),
+                        })
+                    }
                 }
             }
             Ok(None) => break,
@@ -268,7 +261,11 @@ async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> 
                                         let f = e.path().join("simulation.log");
                                         if f.exists() {
                                             sum = read_to_string(f).await.ok().map(|c| {
-                                                c.lines().filter(|l| l.contains("USER") && l.contains("START")).count()
+                                                c.lines()
+                                                    .filter(|l| {
+                                                        l.contains("USER") && l.contains("START")
+                                                    })
+                                                    .count()
                                                     as u64
                                             });
                                         }
@@ -298,6 +295,49 @@ async fn get_testruns(State(state): State<Arc<AppState>>) -> Json<Vec<Testrun>> 
     Json(res)
 }
 
+async fn update_visibility_status(
+    Path(name): Path<String>,
+    State(state): State<Arc<AppState>>,
+    param: Json<UpdateTestrunData>,
+) -> impl IntoResponse {
+    let x = PathBuf::from(&state.result_dir).join(name);
+
+    if !x.exists() {
+        return (StatusCode::NOT_FOUND, "Testdirectory not found").into_response();
+    }
+
+    let data_file = x.join("testrun-data.json");
+
+    if !x.exists() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot find testrun-data file.",
+        )
+            .into_response();
+    }
+
+    match read_data_file(&data_file).await {
+        Ok(mut d) => {
+            d.visibility_status = param.visibility_status.as_ref().unwrap().clone();
+
+            {
+                let mut f = File::create(&data_file).await.unwrap();
+                f.write_all(serde_json::to_string(&d).unwrap().as_bytes())
+                    .await
+                    .unwrap();
+            }
+            return (StatusCode::OK, "OK").into_response();
+        }
+        _ => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Cannot find testrun-data file.",
+            )
+                .into_response();
+        }
+    }
+}
+
 async fn run_test(
     State(state): State<Arc<AppState>>,
     test_param: Json<RunTestParam>,
@@ -321,6 +361,7 @@ async fn run_test(
                 status: TestrunStatus::Running,
                 custom_params: test_param.custom_params.clone(),
                 statistics: None,
+                ..Default::default()
             };
 
             let mut f = File::create(temp_test_dir.join("testrun-data.json"))
@@ -382,6 +423,7 @@ async fn run_test(
                             status: TestrunStatus::Done,
                             custom_params: test_param.custom_params.clone(),
                             statistics: Some(report),
+                            ..Default::default()
                         };
 
                         {

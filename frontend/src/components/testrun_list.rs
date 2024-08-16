@@ -1,7 +1,8 @@
 use std::vec;
 
 use gloo_net::http::Request;
-use models::report::TestrunStatus;
+use models::UpdateTestrunData;
+use models::report::{TestrunStatus, TestrunVisibilityStatus};
 use models::{report::TestrunData, Testrun};
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlInputElement;
@@ -15,6 +16,7 @@ pub enum Msg {
     Selected(Option<TestrunData>),
     Unselected(Option<TestrunData>),
     Clicked(TestrunDataSelection),
+    ChangeVisibilityStatus(String, TestrunVisibilityStatus),
     Changed,
     Compare,
     Data(Result<Vec<Testrun>, String>),
@@ -33,7 +35,7 @@ impl Component for TestrunList {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(ctx: &yew::Context<Self>) -> Self {
+    fn create(_ctx: &yew::Context<Self>) -> Self {
         TestrunList {
             data: None,
             selected_testruns: vec![],
@@ -71,7 +73,9 @@ impl Component for TestrunList {
                             {
                                 data.iter().map(|testrun| {
                                     let x = testrun.data.clone();
+                                    let uid = testrun.name.clone();
                                     let onclick = ctx.link().callback(move |_| Msg::Clicked(TestrunDataSelection { testrun_data: x.clone() }));
+                                    let hide = ctx.link().callback(move |_| Msg::ChangeVisibilityStatus(uid.clone(), TestrunVisibilityStatus::Hidden));
                                     let x = testrun.data.clone();
                                     let onchange = ctx.link().callback(move |ev:Event| {
                                         let input = ev
@@ -111,7 +115,7 @@ impl Component for TestrunList {
                                         <td>
                                             <input type="checkbox" {onchange}/>
                                         </td>
-                                        <td>{ testrun.data.as_ref().and_then(|x| x.datum).map(|x| x.format("%Y-%m-%d %H:%M")) }</td>
+                                        <td>{ testrun.data.as_ref().and_then(|x| x.datum).map(|x| x.format("%Y-%m-%d %H:%M").to_string() ) }</td>
                                         <td>{ testrun.data.as_ref().and_then(|x| x.statistics.as_ref()).map(|x| x.name.clone()).unwrap_or("---".into()) }</td>
                                         <td>{ format!("{:?}", testrun.data.as_ref().unwrap().status) } {progress_text}</td>
                                         <td>{ format!("{}", testrun.data.as_ref().unwrap().custom_params.get("SCENARIO").unwrap_or(&"---".to_owned())) }</td>
@@ -121,6 +125,7 @@ impl Component for TestrunList {
                                         <td>{ format!("{:.4}%", nok_ratio*100.0)}</td>
                                         <td>
                                             <button {onclick} class="pure-button">{ "show" }</button>
+                                            <button onclick={hide} class="button-xsmall pure-button">{ "hide" }</button>
                                             <a href={format!("/simulations/{}/", testrun.name)} class="pure-button" target="_blank">{ "report" }</a>
                                         </td>
                                     </tr>
@@ -169,18 +174,26 @@ impl Component for TestrunList {
                 true
             }
             Msg::Clicked(d) => {
-                let dispatch = Dispatch::<TestrunDataSelection>::new();
+                let context = yewdux::Context::default();
+                let dispatch = Dispatch::<TestrunDataSelection>::new(&context);
                 dispatch.set(d);
                 true
             }
             Msg::Compare => {
-                let dispatch = Dispatch::<CompareSelection>::new();
+                let context = yewdux::Context::default();
+                let dispatch = Dispatch::<CompareSelection>::new(&context);
                 dispatch.set(CompareSelection {
                     testrun_data: Some(self.selected_testruns.clone()),
                 });
                 true
             }
-            _ => false,
+            Msg::ChangeVisibilityStatus(uid, status) => {
+                self.update_visibility_status(ctx, &uid, status);
+                true
+            },
+            Msg::Changed => false,
+            Msg::Selected(_) => false,
+            Msg::Unselected(_) => false
         }
     }
 
@@ -210,6 +223,18 @@ impl TestrunList {
                 }
             };
             link.send_message(Msg::Data(result));
+        });
+    }
+
+    fn update_visibility_status(&mut self, ctx: &yew::Context<Self>, uid : &str, visibility_status : TestrunVisibilityStatus) {
+        let link = ctx.link().clone();
+        let uid = String::from(uid);
+        spawn_local(async move {
+            let resp = Request::patch(&format!("/api/testruns/{uid}")).json(&UpdateTestrunData {
+                visibility_status: Some(visibility_status)
+            }).unwrap().send().await.unwrap();
+            let _ = resp.ok();
+            link.send_message(Msg::Refresh);
         });
     }
 }

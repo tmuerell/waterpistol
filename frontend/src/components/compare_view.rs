@@ -86,9 +86,9 @@ pub fn compare() -> Html {
                     }
 
                     let layout = Layout::new()
-                        .title(Title::new("Speed graph"))
-                        .x_axis(Axis::new().title(Title::new("Time")))
-                        .y_axis(Axis::new().title(Title::new("Milliseconds")));
+                        .title(Title::from("Speed graph"))
+                        .x_axis(Axis::new().title(Title::from("Time")))
+                        .y_axis(Axis::new().title(Title::from("Milliseconds")));
                     plot.set_layout(layout);
 
                     info!("Trying to plot");
@@ -106,12 +106,11 @@ pub fn compare() -> Html {
 
     let selection_dep = selection.clone();
     let criteria_dep = criteria.clone();
-    use_effect_with_deps(
+    use_effect_with((selection_dep, criteria_dep),
         move |_| {
             p.run();
             || ()
-        },
-        (selection_dep, criteria_dep),
+        }
     );
 
     let canvas_ref = use_node_ref();
