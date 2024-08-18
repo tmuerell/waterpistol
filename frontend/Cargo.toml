@@ -14,11 +14,13 @@ wasm-logger = "0.2.0"
 yew = { version = "0.21.0", features = ["csr"] }
 yew-router = "0.18.0"
 models = { path = "../models" }
-web-sys = "0.3.61"
+web-sys = { version = "0.3.70", features = ["HtmlButtonElement"] }
 yewdux = "0.10.0"
 plotly = { version = "0.9.0", features = ["wasm"] }
 yew-hooks = "0.3.2"
 #plotters-canvas = "0.3.0"
 #plotters = "0.3.4"
 gloo-utils = "0.2.0"
+gloo = "0.11"
 wasm-bindgen = "0.2.84"
+gloo-file = { version = "0.3.0", features = ["futures"] }

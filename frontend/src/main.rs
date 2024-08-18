@@ -2,6 +2,7 @@ use components::compare_view::CompareView;
 use components::testrun_list::TestrunList;
 use components::testrun_show::TestrunShow;
 use components::testrun_starter::TestrunStarter;
+use components::uploader::Uploader;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -20,6 +21,7 @@ fn switch(routes: Route) -> Html {
             <main>
                 <img src="/water-droplet.svg" width="40" style="float: left; padding-right: 1em; padding-left: 1em;" />
                 <h1 class="h1">{ "Waterpistol" }</h1>
+                <Uploader />
                 <TestrunStarter />
                 <TestrunList />
                 <TestrunShow />

@@ -2,3 +2,4 @@ target/
 dist/
 waterpistol.yml
 .env
+/test-test-directory

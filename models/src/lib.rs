@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use report::TestrunVisibilityStatus;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use serde_with::base64::Base64;
 
 pub mod config;
 pub mod report;
@@ -43,4 +45,13 @@ pub struct RunTestParam {
 #[derive(Deserialize, Serialize)]
 pub struct UpdateTestrunData {
     pub visibility_status: Option<TestrunVisibilityStatus>,
+}
+
+#[serde_as]
+#[derive(Deserialize, Serialize)]
+pub struct UploadTestsuite {
+    pub file_name : String,
+    pub mime_type: String,
+    #[serde_as(as = "Base64")]
+    pub data : Vec<u8>,
 }

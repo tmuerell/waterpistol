@@ -51,7 +51,7 @@ pub fn testrun_starter() -> Html {
     } */
     ref_map.insert("ENVIRONMENT", use_node_ref());
     ref_map.insert("DURATION", use_node_ref());
-    ref_map.insert("FACTOR", use_node_ref());
+    ref_map.insert("USERS", use_node_ref());
     ref_map.insert("SCENARIO", use_node_ref());
 
     let ref_map = Arc::new(ref_map);
