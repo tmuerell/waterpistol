@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::HtmlInputElement;
 use yew::{html, Component, Html, Properties};
 use yew::{platform::spawn_local, prelude::*};
-use yewdux::prelude::{use_store, Dispatch};
+use yewdux::prelude::*;
 
 use crate::store::{CompareSelection, TestrunDataSelection};
 
@@ -174,14 +174,12 @@ impl Component for TestrunList {
                 true
             }
             Msg::Clicked(d) => {
-                let context = yewdux::Context::default();
-                let dispatch = Dispatch::<TestrunDataSelection>::new(&context);
+                let dispatch = Dispatch::<TestrunDataSelection>::global();
                 dispatch.set(d);
                 true
             }
             Msg::Compare => {
-                let context = yewdux::Context::default();
-                let dispatch = Dispatch::<CompareSelection>::new(&context);
+                let dispatch = Dispatch::<CompareSelection>::new(&yewdux::Context::global());
                 dispatch.set(CompareSelection {
                     testrun_data: Some(self.selected_testruns.clone()),
                 });
