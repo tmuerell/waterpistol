@@ -43,7 +43,7 @@ struct Opt {
 
     /// set the gatling dir to use
     #[clap(long = "data-dir")]
-    data_dir: String,
+    data_dir: PathBuf,
 }
 
 const TESTSUITE_NAME : &str = "main";  // TODO: Make this configurable...
@@ -95,7 +95,7 @@ async fn main() -> Result<()> {
         .merge(Yaml::file("waterpistol.yml"))
         .extract()?;
 
-    let testsuite_dir = PathBuf::from(&opt.data_dir);
+    let testsuite_dir = PathBuf::from(&opt.data_dir.canonicalize()?);
 
     let shared_state = Arc::new(AppState {
         data_dir: testsuite_dir.clone(),
