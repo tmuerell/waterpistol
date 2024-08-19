@@ -42,14 +42,14 @@ struct Opt {
     port: u16,
 
     /// set the gatling dir to use
-    #[clap(long = "testsuite-dir")]
-    testsuite_dir: String,
+    #[clap(long = "data-dir")]
+    data_dir: String,
 }
 
 const TESTSUITE_NAME : &str = "main";  // TODO: Make this configurable...
 
 pub struct AppState {
-    pub testsuite_dir: PathBuf,
+    pub data_dir: PathBuf,
     pub result_dir: PathBuf,
     pub app_config: AppConfig,
 }
@@ -95,10 +95,10 @@ async fn main() -> Result<()> {
         .merge(Yaml::file("waterpistol.yml"))
         .extract()?;
 
-    let testsuite_dir = PathBuf::from(&opt.testsuite_dir);
+    let testsuite_dir = PathBuf::from(&opt.data_dir);
 
     let shared_state = Arc::new(AppState {
-        testsuite_dir: testsuite_dir.clone(),
+        data_dir: testsuite_dir.clone(),
         result_dir: testsuite_dir.join(TESTSUITE_NAME).join("target/gatling"),
         app_config: config,
     });

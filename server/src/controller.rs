@@ -97,7 +97,7 @@ pub async fn get_testruns(State(state): State<Arc<AppState>>) -> error::Result<J
 
     res.sort();
 
-    let mut x = read_dir(&state.testsuite_dir).await.unwrap();
+    let mut x = read_dir(&state.data_dir).await.unwrap();
     loop {
         match x.next_entry().await {
             Ok(Some(e)) => {
@@ -238,7 +238,7 @@ pub async fn run_test(
             }
         }
 
-        cmd.current_dir(&state.testsuite_dir.join(TESTSUITE_NAME));
+        cmd.current_dir(&state.data_dir.join(TESTSUITE_NAME));
 
         let output = cmd.status().await.unwrap();
 
@@ -299,11 +299,11 @@ pub async fn upload_archive(
     State(state): State<Arc<AppState>>,
     upload: Json<UploadTestsuite>,
 ) -> error::Result<impl IntoResponse> {
-    let f = state.testsuite_dir.join("tempfile.tar.gz");
+    let f = state.data_dir.join("tempfile.tar.gz");
 
     let file_name = TESTSUITE_NAME;
     let mime_type = upload.mime_type.clone();
-    let unpack_dir = state.testsuite_dir.join(TESTSUITE_NAME);
+    let unpack_dir = state.data_dir.join(TESTSUITE_NAME);
 
     if mime_type == "application/gzip" || mime_type == "application/x-gzip" {
     {
