@@ -7,6 +7,9 @@ env:
   MIN_SUPPORTED_RUST_VERSION: "1.42.0"
   CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
 
+permissions:
+  contents: write
+
 jobs:
   release:
     name: ${{ matrix.job.os }} (${{ matrix.job.target }})
