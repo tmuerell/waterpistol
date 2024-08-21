@@ -36,6 +36,11 @@ impl PartialOrd for Testrun {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Testsuite {
+    pub name: String,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct RunTestParam {
     pub description: String,
@@ -54,4 +59,17 @@ pub struct UploadTestsuite {
     pub mime_type: String,
     #[serde_as(as = "Base64")]
     pub data : Vec<u8>,
+}
+
+#[derive(Deserialize, Serialize, PartialEq)]
+pub enum SystemStatus {
+    Healthy,
+    Unhealthy,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct SystemStatusResponse {
+    pub overall: SystemStatus,
+    pub maven_output: Option<String>,
+    pub java_version: Option<String>,
 }

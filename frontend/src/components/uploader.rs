@@ -52,7 +52,7 @@ pub fn testrun_starter() -> Html {
                         mime_type,
                         data
                     };
-                    let _ = Request::post("/api/upload")
+                    let _ = Request::post("/api/testsuites/upload")
                         .json(&body)
                         .unwrap()
                         .send()

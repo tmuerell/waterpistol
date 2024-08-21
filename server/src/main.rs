@@ -1,7 +1,9 @@
 use assets::static_handler;
 use axum::extract::State;
 use axum::http::{header, StatusCode, Uri};
-use controller::{get_config, get_testruns, run_test, update_visibility_status, upload_archive};
+use controller::{
+    get_config, get_status, get_testruns, get_testsuites, run_test, update_visibility_status, upload_archive
+};
 use figment::providers::{Format, Serialized, Yaml};
 use figment::Figment;
 use models::config::AppConfig;
@@ -46,7 +48,7 @@ struct Opt {
     data_dir: PathBuf,
 }
 
-const TESTSUITE_NAME : &str = "main";  // TODO: Make this configurable...
+const TESTSUITE_NAME: &str = "main"; // TODO: Make this configurable...
 
 pub struct AppState {
     pub data_dir: PathBuf,
@@ -104,11 +106,13 @@ async fn main() -> Result<()> {
     });
 
     let app = Router::new()
-        .route("/api/upload", post(upload_archive))
+        .route("/api/testsuites", get(get_testsuites))
+        .route("/api/testsuites/upload", post(upload_archive))
         .route("/api/testruns", get(get_testruns))
         .route("/api/testruns/:name", patch(update_visibility_status))
         .route("/api/run", post(run_test))
         .route("/api/config", get(get_config))
+        .route("/api/status", get(get_status))
         .route("/simulations/*path", get(simulations_handler))
         .fallback_service(get(static_handler))
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))

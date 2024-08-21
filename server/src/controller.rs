@@ -9,7 +9,7 @@ use models::config::AppConfig;
 
 use axum::response::IntoResponse;
 use models::report::{GatlingReport, TestrunData, TestrunStatus, TestrunVisibilityStatus};
-use models::{RunTestParam, Testrun, UpdateTestrunData, UploadTestsuite};
+use models::{RunTestParam, SystemStatusResponse, Testrun, Testsuite, UpdateTestrunData, UploadTestsuite};
 use tar::Archive;
 
 use std::io::{BufReader, Write};
@@ -35,6 +35,32 @@ pub async fn get_config(State(state): State<Arc<AppState>>) -> error::Result<Jso
     Ok(Json(state.app_config.clone()))
 }
 
+pub async fn get_status(State(_state): State<Arc<AppState>>) -> error::Result<Json<SystemStatusResponse>> {
+
+    let Ok(res) = Command::new("bash").arg("-c").arg("mvn -v").output().await else {
+        return Ok(Json(SystemStatusResponse {
+            overall: models::SystemStatus::Unhealthy,
+            maven_output: None,
+            java_version: None,
+        }))
+    };
+
+    let Ok(output) = String::from_utf8(res.stdout) else {
+        return Ok(Json(SystemStatusResponse {
+            overall: models::SystemStatus::Unhealthy,
+            maven_output: None,
+            java_version: None,
+        }))
+    };
+
+    Ok(Json(SystemStatusResponse {
+        overall: models::SystemStatus::Healthy,
+        maven_output: Some(output),
+        java_version: None,
+    }))
+
+}
+
 pub async fn get_testruns(State(state): State<Arc<AppState>>) -> error::Result<Json<Vec<Testrun>>> {
     let mut res: Vec<Testrun> = vec![];
 
@@ -46,7 +72,7 @@ pub async fn get_testruns(State(state): State<Arc<AppState>>) -> error::Result<J
     loop {
         match x.next_entry().await {
             Ok(Some(e)) => {
-                if e.path().is_dir() {
+                if e.path().is_dir() && !e.file_name().to_string_lossy().starts_with("running-"){
                     let data_file = e.path().join("testrun-data.json");
                     let data: TestrunData = match read_data_file(&data_file).await {
                         Ok(df) => df,
@@ -97,7 +123,7 @@ pub async fn get_testruns(State(state): State<Arc<AppState>>) -> error::Result<J
 
     res.sort();
 
-    let mut x = read_dir(&state.data_dir).await.unwrap();
+    let mut x = read_dir(&state.result_dir).await.unwrap();
     loop {
         match x.next_entry().await {
             Ok(Some(e)) => {
@@ -150,6 +176,29 @@ pub async fn get_testruns(State(state): State<Arc<AppState>>) -> error::Result<J
     }
 
     res.reverse();
+    Ok(Json(res))
+}
+
+pub async fn get_testsuites(State(state): State<Arc<AppState>>) -> error::Result<Json<Vec<Testsuite>>> {
+    let mut res: Vec<Testsuite> = vec![];
+
+    let Ok(dir) = read_dir(&state.data_dir).await else {
+        return Err(Error::NotFound);
+    };
+
+    let mut x = dir;
+    loop {
+        match x.next_entry().await {
+            Ok(Some(e)) => {
+                if e.path().is_dir() {
+                    res.push(Testsuite { name: e.file_name().to_string_lossy().into_owned() });
+                }
+            }
+            Ok(None) => break,
+            Err(_) => break,
+        }
+    }
+
     Ok(Json(res))
 }
 

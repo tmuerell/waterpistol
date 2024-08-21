@@ -18,7 +18,7 @@ dev:
 
   (trap 'kill 0' SIGINT; \
   bash -c 'cd frontend; trunk serve --proxy-backend=http://[::1]:8081/api/' & \
-  bash -c 'cargo watch -- cargo run --bin server -- --port 8081 --testsuite-dir=${TEST_GATLING_DIR}')
+  bash -c 'cargo watch -- cargo run --bin server -- --port 8081 --data-dir=${TEST_GATLING_DIR}')
 
 prod:
   #!/usr/bin/env bash
