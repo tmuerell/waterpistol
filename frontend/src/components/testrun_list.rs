@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::vec;
 
 use gloo_net::http::Request;
@@ -49,6 +50,9 @@ impl Component for TestrunList {
             Some(Ok(ref data)) => {
                 let onclick = ctx.link().callback(|_| Msg::Compare);
                 let onclick2 = ctx.link().callback(|_| Msg::Refresh);
+
+                let columns : HashSet<String> = data.iter().filter_map(|d| d.data.clone()).map(|d| d.custom_params.keys().cloned().collect::<Vec<_>>() ).flatten().collect();
+
                 html! {
                     <article>
                         <h3>{"Testruns"}</h3>
@@ -60,11 +64,13 @@ impl Component for TestrunList {
                         <th>{ "Date" }</th>
                         <th>{ "Name" }</th>
                         <th>{ "Status" }</th>
-                        <th>{ "Scenario" }</th>
-                        <th>{ "Duration" }</th>
-                        <th>{ "Factor" }</th>
                         <th>{ "Requests" }</th>
                         <th>{ "(Failure%)" }</th>
+                        {
+                            columns.iter().map(|c| html! {
+                                <th>{ c }</th>
+                            }).collect::<Html>()
+                        }
                         <th></th>
                         </tr>
                         </thead>
@@ -118,11 +124,13 @@ impl Component for TestrunList {
                                         <td>{ testrun.data.as_ref().and_then(|x| x.datum).map(|x| x.format("%Y-%m-%d %H:%M").to_string() ) }</td>
                                         <td>{ testrun.data.as_ref().and_then(|x| x.statistics.as_ref()).map(|x| x.name.clone()).unwrap_or("---".into()) }</td>
                                         <td>{ format!("{:?}", testrun.data.as_ref().unwrap().status) } {progress_text}</td>
-                                        <td>{ format!("{}", testrun.data.as_ref().unwrap().custom_params.get("SCENARIO").unwrap_or(&"---".to_owned())) }</td>
-                                        <td>{ format!("{}", testrun.data.as_ref().unwrap().custom_params.get("DURATION").unwrap_or(&"---".to_owned())) }</td>
-                                        <td>{ format!("{}", testrun.data.as_ref().unwrap().custom_params.get("FACTOR").unwrap_or(&"---".to_owned())) }</td>
                                         <td>{ format!("{}", total)}</td>
                                         <td>{ format!("{:.4}%", nok_ratio*100.0)}</td>
+                                        {
+                                            columns.iter().map(|c| html!{
+                                               <td>{ format!("{}", testrun.data.as_ref().unwrap().custom_params.get(c).unwrap_or(&"---".to_owned())) }</td>
+                                            }).collect::<Html>()
+                                        }
                                         <td>
                                             <button {onclick} class="pure-button">{ "show" }</button>
                                             <button onclick={hide} class="button-xsmall pure-button">{ "hide" }</button>
