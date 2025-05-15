@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::vec;
 
 use gloo_net::http::Request;
+use itertools::Itertools;
 use models::UpdateTestrunData;
 use models::report::{TestrunStatus, TestrunVisibilityStatus};
 use models::{report::TestrunData, Testrun};
@@ -52,6 +53,7 @@ impl Component for TestrunList {
                 let onclick2 = ctx.link().callback(|_| Msg::Refresh);
 
                 let columns : HashSet<String> = data.iter().filter_map(|d| d.data.clone()).map(|d| d.custom_params.keys().cloned().collect::<Vec<_>>() ).flatten().collect();
+                let columns : Vec<String> = columns.into_iter().sorted().collect();
 
                 html! {
                     <article>
